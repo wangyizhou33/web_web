@@ -53,6 +53,6 @@
 
 ## GitHub Pages 部署
 
-- 目标仓库为 `wbc_web`，发布分支为 `main`。在仓库的 **Settings → Pages → Build and deployment → Source** 中选择 **GitHub Actions**。[GitHub Pages 设置文档](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site#publishing-with-a-custom-github-actions-workflow)
-- [部署工作流](.github/workflows/deploy-pages.yml)在推送到 `main` 时自动运行，也可在 Actions 中从 `main` 手动运行。工作流打包静态页面、两个 Demo、字体、图表和网页播放版媒体。
+- 目标仓库为 `wbc_web`，发布分支为 `develop`。在仓库的 **Settings → Pages → Build and deployment → Source** 中选择 **GitHub Actions**。[GitHub Pages 设置文档](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site#publishing-with-a-custom-github-actions-workflow)
+- [部署工作流](.github/workflows/deploy-pages.yml)在推送到 `develop` 时自动运行，也可在 Actions 中从 `develop` 手动运行。工作流打包静态页面、两个 Demo、字体、图表和网页播放版媒体。
 - 页面资源使用相对路径，适用于 `/wbc_web/` 路径。使用默认域名时，发布地址为 `https://<owner>.github.io/wbc_web/`。实际地址可在对应的工作流运行记录中查看。
