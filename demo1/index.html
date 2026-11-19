@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="zh-CN">
+<title>H2 URR 跟踪回放</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: full-bleed 3D studio; floating glass chips top-left / top-right, pose strip + transport bar at the bottom */
+:root {
+  --bg: #ffffff; --floor: #ffffff; --grid: #e2e4e8;
+  --panel: rgba(255,255,255,.86); --line: rgba(20,24,32,.10);
+  --fg: #1d2230; --muted: #6c7383; --accent: #2f6fdb; --accent-soft: rgba(47,111,219,.12);
+  --good: #1f9d63; --warn: #c7861c; --bad: #cf4b3c;
+  --sans: "Inter", system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #15181e; --floor: #1b1f26; --grid: #2c323c; --panel: rgba(30,34,42,.86); --line: rgba(255,255,255,.10);
+  --fg: #e8ebf1; --muted: #9aa2b1; --accent: #6b9bff; --accent-soft: rgba(107,155,255,.16); color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #15181e; --floor: #1b1f26; --grid: #2c323c; --panel: rgba(30,34,42,.86); --line: rgba(255,255,255,.10);
+  --fg: #e8ebf1; --muted: #9aa2b1; --accent: #6b9bff; --accent-soft: rgba(107,155,255,.16); color-scheme: dark }
+html, body { height: 100%; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.45 var(--sans); overflow: hidden; }
+#view { position: fixed; inset: 0; }
+#view canvas { display: block; outline: none; }
+.glass { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); box-shadow: 0 6px 24px rgba(20,24,32,.07); }
+.tl { position: fixed; top: calc(14px + env(safe-area-inset-top, 0px)); left: max(16px, env(safe-area-inset-left, 0px)); display: flex; flex-direction: column; gap: 8px; max-width: calc(100% - 32px); }
+.chips { display: flex; gap: 4px; padding: 4px; width: max-content; }
+.chip { border: 0; background: transparent; color: var(--muted); font: 500 12.5px var(--sans); padding: 6px 11px; border-radius: 10px; cursor: pointer; display: flex; align-items: center; gap: 7px; }
+.chip::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--grid); }
+.chip[aria-pressed="true"] { color: var(--fg); background: var(--accent-soft); }
+.chip[aria-pressed="true"]::before { background: var(--accent); }
+.chip:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.status { font: 500 11px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding-left: 4px; }
+.status b { color: var(--fg); font-weight: 500; }
+.tr { position: fixed; top: calc(14px + env(safe-area-inset-top, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); padding: 12px 14px; width: 248px; display: grid; gap: 8px; }
+.tr h2 { margin: 0; font: 600 15px var(--sans); text-wrap: balance; }
+.tr .sub { color: var(--muted); font-size: 12px; margin-top: -4px; word-break: break-all; }
+.metrics { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 12px; font-size: 12.5px; }
+[hidden] { display: none !important; }
+.metrics dt { color: var(--muted); white-space: nowrap; }
+.metrics dd { margin: 0; font: 500 12.5px var(--mono); font-variant-numeric: tabular-nums; text-align: right; overflow-wrap: anywhere; }
+.pill { display: inline-block; font: 500 11px var(--sans); padding: 2px 8px; border-radius: 99px; background: var(--accent-soft); color: var(--accent); width: max-content; }
+.bottom { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(14px + env(safe-area-inset-bottom, 0px)); width: min(980px, calc(100% - 32px)); display: grid; gap: 8px; }
+.poses { display: flex; gap: 6px; overflow-x: auto; padding: 6px; scrollbar-width: none; }
+.poses::-webkit-scrollbar { display: none; }
+.pose { flex: 0 0 auto; border: 1px solid transparent; background: transparent; color: var(--fg); border-radius: 10px; padding: 6px 12px; cursor: pointer; text-align: left; font: 500 13px var(--sans); }
+.pose small { display: block; color: var(--muted); font: 400 11px var(--sans); }
+.pose:hover { background: var(--accent-soft); }
+.pose[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
+.bar { display: flex; align-items: center; gap: 10px; padding: 8px 12px; flex-wrap: wrap; }
+.icon { width: 32px; height: 32px; border-radius: 9px; border: 1px solid var(--line); background: transparent; color: var(--fg); cursor: pointer; display: grid; place-items: center; }
+.icon svg { width: 15px; height: 15px; fill: currentColor; }
+.timeline { flex: 1 1 280px; min-width: 0; display: grid; gap: 3px; }
+.track { position: relative; height: 6px; border-radius: 3px; background: var(--grid); }
+.seg { position: absolute; top: 0; bottom: 0; border-radius: 3px; }
+.seg.interp { background: var(--accent-soft); outline: 1px solid var(--accent); }
+#scrub { position: absolute; inset: -7px 0; width: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.head { position: absolute; top: -4px; width: 14px; height: 14px; margin-left: -7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px var(--panel); pointer-events: none; }
+.marks { display: flex; justify-content: space-between; font: 400 10.5px var(--mono); color: var(--muted); }
+.marks span { flex: 1; }
+.speed { display: flex; align-items: center; gap: 6px; font: 400 12px var(--sans); color: var(--muted); }
+.speed select { font: 500 12px var(--sans); color: var(--fg); background: transparent; border: 1px solid var(--line); border-radius: 8px; padding: 4px 6px; }
+.loop { font: 400 11.5px var(--sans); color: var(--muted); }
+@media (max-width: 700px) {
+  .tr { top: auto; bottom: calc(150px + env(safe-area-inset-bottom, 0px)); width: auto; left: max(16px, env(safe-area-inset-left, 0px)); }
+  .tr .sub, .loop { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .head { transition: none; } }
+/* Match the showcase palette while embedded. */
+:root[data-embedded] {
+  color-scheme: light;
+  --bg: #f9f9f9; --floor: #f6f6f6; --grid: #ddd;
+  --panel: rgba(255,255,255,.9); --line: rgba(25,25,25,.13);
+  --fg: #252525; --muted: #595959; --accent: #505050; --accent-soft: #e9e9e9;
+}
+/* Keep the host page scrollable while orbiting an embedded scene. */
+:root[data-embedded] #view canvas { touch-action: pan-y !important; }
+.metrics-toggle { display: none; }
+@media (max-width: 700px) {
+  :root[data-embedded] .tl { top: 10px; left: 10px; max-width: calc(100% - 20px); }
+  :root[data-embedded] .chips { width: auto; }
+  :root[data-embedded] .chip { padding-inline: 4px; gap: 4px; font-size: 11.5px; white-space: nowrap; }
+  :root[data-embedded] .metrics-toggle {
+    display: block; position: fixed; top: 51px; right: 10px;
+    padding: 4px 10px; color: var(--fg); font: 12px var(--sans); cursor: pointer;
+  }
+  :root[data-embedded] .tr:not([data-expanded]) { display: none; }
+  :root[data-embedded] .tr { inset: 84px 10px auto auto; max-width: calc(100% - 20px); gap: 3px; padding: 7px 10px; }
+  :root[data-embedded] .metrics { margin-block: 2px; }
+  :root[data-embedded] .bottom { bottom: 10px; width: calc(100% - 20px); }
+  :root[data-embedded] .timeline { flex-basis: 6rem; }
+}
+@media (max-width: 460px) {
+  :root[data-embedded] .chips { padding: 3px; gap: 2px; }
+  :root[data-embedded] .chip { padding-inline: 3px; gap: 3px; font-size: 11px; }
+  :root[data-embedded] .chip::before { width: 5px; height: 5px; flex: none; }
+  :root[data-embedded] .bar { display: grid; grid-template-columns: auto auto 1fr auto; gap: 6px; }
+  :root[data-embedded] .speed { grid-column: 4; }
+  :root[data-embedded] .timeline { grid-area: 2 / 1 / auto / -1; margin: 6px 2px 0; }
+}
+</style>
+
+<div id="view" aria-label="3D view: drag to orbit, scroll to zoom"></div>
+
+<div class="tl">
+  <div class="chips glass" role="group" aria-label="Show in scene">
+    <button class="chip" id="t-robot" aria-pressed="true">Robot（推理）</button>
+    <button class="chip" id="t-goal" aria-pressed="false">URR 目标部位</button>
+    <button class="chip" id="t-human" aria-pressed="true">SMPL 人体</button>
+  </div>
+  <div class="status" id="status">Step <b>0</b> · 起始</div>
+</div>
+
+<button class="metrics-toggle glass" type="button" aria-controls="demo-metrics" aria-expanded="false">指标</button>
+<aside class="tr glass" id="demo-metrics" aria-live="polite">
+  <span class="pill" id="phase">MuJoCo 闭环推理</span>
+  <h2 id="p-title">—</h2>
+  <div class="sub" id="p-clip">—</div>
+  <dl class="metrics" id="metrics"></dl>
+  <div class="loop" id="model"></div>
+</aside>
+
+<div class="bottom">
+  <div class="poses glass" id="poses" role="group" aria-label="选择片段"></div>
+  <div class="bar glass">
+    <button class="icon" id="reset" title="重置到起始姿态" aria-label="重置"><svg viewBox="0 0 16 16"><path d="M8 2.5a5.5 5.5 0 1 1-5.2 3.7l1.4.5A4 4 0 1 0 8 4v2L4.8 3.3 8 .5v2z"/></svg></button>
+    <button class="icon" id="play" title="播放 / 暂停" aria-label="播放或暂停"><svg viewBox="0 0 16 16" id="play-ico"><path d="M4 2.5v11l9-5.5z"/></svg></button>
+    <div class="timeline">
+      <div class="track" id="track">
+        <div class="head" id="head"></div>
+        <input type="range" id="scrub" min="0" max="449" value="0" aria-label="时间轴">
+      </div>
+      <div class="marks"><span id="m0">0 s</span><span id="m2" style="text-align:right">—</span></div>
+    </div>
+    <label class="speed" for="rate">速度
+      <select id="rate"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option></select>
+    </label>
+  </div>
+</div>
+
+<script src="lib/three.min.js"></script>
+<script src="lib/OrbitControls.js"></script>
+<script src="data/assets.js"></script>
+<script src="data/clip_fixing.js"></script>
+<script>
+(() => {
+  const embedded = new URLSearchParams(location.search).has('embed');
+  if (embedded) {
+    document.documentElement.dataset.embedded = '';
+    document.documentElement.dataset.theme = 'light';
+  }
+  const A = window.ASSETS, P = window.POSES;
+  const b64 = (s, T) => { const bin = atob(s), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return new T(u.buffer); };
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const HUMAN_OFFSET = 1.35;  // m, the SMPL human stands beside the robot (robot's left)
+
+  // ---------- renderer / scene (world is z-up: one root group rotated to three's y-up)
+  const view = document.getElementById('view');
+  if (embedded) {
+    view.setAttribute('aria-label', '3D 演示，拖动旋转视角');
+    const panel = document.getElementById('demo-metrics');
+    const toggle = document.querySelector('.metrics-toggle');
+    toggle.addEventListener('click', () => {
+      const expanded = panel.toggleAttribute('data-expanded');
+      toggle.setAttribute('aria-expanded', String(expanded));
+    });
+  }
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  view.appendChild(renderer.domElement);
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(30, 1, 0.05, 100);
+  camera.position.set(6.2, 2.7, 4.3);
+  const controls = new THREE.OrbitControls(camera, renderer.domElement);
+  controls.target.set(0, 0.62, -0.68); controls.enableDamping = true; controls.minDistance = 1.2; controls.maxDistance = 12;
+  controls.maxPolarAngle = Math.PI * 0.495;
+  if (embedded) controls.enableZoom = false;
+  const world = new THREE.Group(); world.rotation.x = -Math.PI / 2; scene.add(world);
+  const hemi = new THREE.HemisphereLight(0xffffff, 0xd8dbe2, 0.75); scene.add(hemi);
+  const key = new THREE.DirectionalLight(0xffffff, 0.75);
+  key.position.set(2.5, 5.5, 3); key.castShadow = true; key.shadow.mapSize.set(2048, 2048);
+  Object.assign(key.shadow.camera, { left: -3, right: 3, top: 3, bottom: -3, near: 0.5, far: 15 }); key.shadow.radius = 4; key.shadow.bias = -0.0004;
+  scene.add(key);
+  const fill = new THREE.DirectionalLight(0xffffff, 0.25); fill.position.set(-3, 2, -2); scene.add(fill);
+
+  // floor: soft grid fading out with distance (canvas texture, no assets)
+  const floorMat = new THREE.ShaderMaterial({
+    uniforms: { uBg: { value: new THREE.Color() }, uFloor: { value: new THREE.Color() }, uGrid: { value: new THREE.Color() } },
+    vertexShader: 'varying vec3 vP; void main(){ vP = (modelMatrix*vec4(position,1.)).xyz; gl_Position = projectionMatrix*viewMatrix*vec4(vP,1.); }',
+    fragmentShader: `uniform vec3 uBg,uFloor,uGrid; varying vec3 vP;
+      float line(float x){ float d = abs(fract(x-.5)-.5)/fwidth(x); return 1.-min(d,1.); }
+      void main(){ vec2 p = vP.xz/0.5; float g = max(line(p.x), line(p.y));
+        float r = length(vP.xz - vec2(0.,-0.6)); float fade = smoothstep(14.0, 3.0, r);
+        vec3 c = mix(uFloor, uGrid, g*.85); gl_FragColor = vec4(mix(uBg, c, fade), 1.); }`,
+    extensions: { derivatives: true }
+  });
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), floorMat);
+  floor.rotation.x = -Math.PI / 2; scene.add(floor);
+  const shadowCatcher = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), new THREE.ShadowMaterial({ opacity: 0.16 }));
+  shadowCatcher.rotation.x = -Math.PI / 2; shadowCatcher.position.y = 0.001; shadowCatcher.receiveShadow = true; scene.add(shadowCatcher);
+  function applyTheme() {
+    const bg = new THREE.Color(css('--bg')); scene.background = bg;
+    floorMat.uniforms.uBg.value.set(css('--bg')); floorMat.uniforms.uFloor.value.set(css('--floor')); floorMat.uniforms.uGrid.value.set(css('--grid'));
+  }
+  applyTheme();
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
+  new MutationObserver(applyTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+  // ---------- robot meshes (one group per body, cream + black parts in body frames)
+  const colors = { cream: new THREE.Color().setRGB(...A.colors.cream).convertSRGBToLinear(), black: new THREE.Color().setRGB(...A.colors.black).convertSRGBToLinear() };
+  const geoms = A.parts.map(p => {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(b64(p.v, Float32Array), 3));
+    g.setIndex(new THREE.BufferAttribute(b64(p.f, Uint32Array), 1));
+    g.computeVertexNormals(); return g;
+  });
+  function makeRobot(ghost) {
+    const root = new THREE.Group(), bodies = A.bodies.map(() => { const b = new THREE.Group(); root.add(b); return b; });
+    A.parts.forEach((p, i) => {
+      const mat = ghost
+        ? new THREE.MeshStandardMaterial({ color: 0x4f86f7, transparent: true, opacity: 0.45, depthWrite: false, roughness: 1 })
+        : new THREE.MeshStandardMaterial({ color: colors[p.color], roughness: p.color === 'cream' ? 0.62 : 0.5, metalness: 0.0 });
+      const m = new THREE.Mesh(geoms[i], mat); m.castShadow = !ghost; bodies[p.body].add(m);
+    });
+    world.add(root); return { root, bodies };
+  }
+  const robot = makeRobot(false), goal = makeRobot(true);
+  function setBodies(r, arr, off) {
+    for (let b = 0; b < r.bodies.length; b++) {
+      const o = off + b * 7, g = r.bodies[b];
+      g.position.set(arr[o], arr[o + 1], arr[o + 2]);
+      g.quaternion.set(arr[o + 4], arr[o + 5], arr[o + 6], arr[o + 3]);  // wxyz -> xyzw
+    }
+  }
+
+  // ---------- SMPL human (template skinned on the CPU with the per-frame joint transforms)
+  const sv = b64(A.smpl.v, Float32Array), sf = b64(A.smpl.f, Uint32Array), wi = b64(A.smpl.wi, Uint8Array), ww = b64(A.smpl.ww, Float32Array);
+  const nv = sv.length / 3;
+  const hGeo = new THREE.BufferGeometry();
+  const hPos = new Float32Array(sv.length);
+  hGeo.setAttribute('position', new THREE.BufferAttribute(hPos, 3)); hGeo.setIndex(new THREE.BufferAttribute(sf, 1));
+  const human = new THREE.Mesh(hGeo, new THREE.MeshStandardMaterial({ color: new THREE.Color(0.70, 0.74, 0.82).convertSRGBToLinear(), roughness: 0.85 }));
+  human.castShadow = true; human.frustumCulled = false;
+  const humanGroup = new THREE.Group(); humanGroup.add(human); world.add(humanGroup);
+  function skin(Aj, off) {  // Aj: (T,24,3,4) float32
+    for (let v = 0; v < nv; v++) {
+      const x = sv[3 * v], y = sv[3 * v + 1], z = sv[3 * v + 2];
+      let ox = 0, oy = 0, oz = 0;
+      for (let k = 0; k < 4; k++) {
+        const w = ww[4 * v + k]; if (w === 0) continue;
+        const o = off + wi[4 * v + k] * 12;
+        ox += w * (Aj[o] * x + Aj[o + 1] * y + Aj[o + 2] * z + Aj[o + 3]);
+        oy += w * (Aj[o + 4] * x + Aj[o + 5] * y + Aj[o + 6] * z + Aj[o + 7]);
+        oz += w * (Aj[o + 8] * x + Aj[o + 9] * y + Aj[o + 10] * z + Aj[o + 11]);
+      }
+      hPos[3 * v] = ox; hPos[3 * v + 1] = oy; hPos[3 * v + 2] = oz;
+    }
+    hGeo.attributes.position.needsUpdate = true; hGeo.computeVertexNormals();
+  }
+
+  // ---------- clips / UI
+  const C = window.CLIPS, keys = Object.keys(C);
+  const cache = {};
+  const decoded = k => cache[k] || (cache[k] = { robot: b64(C[k].robot, Float32Array), ghost: b64(C[k].ghost, Float32Array), human: C[k].human ? b64(C[k].human, Float32Array) : null });
+  const nb = A.bodies.length;
+  const el = id => document.getElementById(id);
+  let cur = null, frame = 0, playing = true, last = performance.now(), acc = 0, fps = 50;
+  const strip = el('poses');
+  keys.forEach(k => {
+    const b = document.createElement('button'); b.className = 'pose'; b.id = 'pose-' + k; b.setAttribute('aria-pressed', 'false');
+    b.innerHTML = `${C[k].title.split(' · ')[0]}<small>${C[k].title.split(' · ')[1] || ''}</small>`; b.onclick = () => select(k); strip.appendChild(b);
+  });
+  strip.hidden = keys.length < 2;
+  function place(k) {  // human beside the robot and the camera, relative to the robot's starting heading
+    const r = decoded(k).robot, qw = r[3], qz = r[6], yaw = 2 * Math.atan2(qz, qw);
+    const c = Math.cos(yaw), s = Math.sin(yaw), x0 = r[0], y0 = r[1];
+    humanGroup.position.set(x0 - s * HUMAN_OFFSET, y0 + c * HUMAN_OFFSET, 0);
+    const mid = [x0 - s * HUMAN_OFFSET * 0.5, y0 + c * HUMAN_OFFSET * 0.5];
+    // world (x, y, z-up) -> three (x, z-up -> y, -y -> z)
+    const camW = [mid[0] + c * 6.2 + s * 4.3, mid[1] + s * 6.2 - c * 4.3];  // in front, to the robot's right
+    camera.position.set(camW[0], 2.7, -camW[1]); controls.target.set(mid[0], 0.62, -mid[1]); controls.update();
+  }
+  function select(k) {
+    cur = k; frame = 0; playing = true; acc = 0; updatePlayIcon(); fps = C[k].fps || 50;
+    keys.forEach(x => el('pose-' + x).setAttribute('aria-pressed', String(x === k)));
+    el('p-title').textContent = C[k].title;
+    el('p-clip').textContent = C[k].subtitle || '';
+    el('metrics').innerHTML = Object.entries(C[k].info || {}).map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join('');
+    el('model').textContent = '';
+    el('t-goal').textContent = C[k].ghost_label || 'Goal';
+    goal.bodies.forEach((g, i) => { g.visible = !!C[k].ghost_mask[i]; });
+    const T = C[k].frames; el('scrub').max = T - 1; el('m2').textContent = (T / fps).toFixed(1) + ' s';
+    el('t-human').hidden = !C[k].human; humanGroup.visible = !!C[k].human && el('t-human').getAttribute('aria-pressed') === 'true';
+    place(k); draw();
+  }
+  function draw() {
+    const d = decoded(cur), T = C[cur].frames;
+    frame = Math.max(0, Math.min(T - 1, frame));
+    setBodies(robot, d.robot, frame * nb * 7);
+    setBodies(goal, d.ghost, frame * nb * 7);
+    if (d.human && humanGroup.visible) skin(d.human, frame * 24 * 12);
+    const t = frame / fps;
+    el('status').innerHTML = `Step <b>${frame}</b> · ${t.toFixed(2)} s / ${(T / fps).toFixed(1)} s`;
+    el('scrub').value = frame; el('head').style.left = (frame / (T - 1) * 100) + '%';
+  }
+  const playIco = el('play-ico');
+  function updatePlayIcon() { playIco.innerHTML = playing ? '<path d="M4 2.5h3v11H4zM9 2.5h3v11H9z"/>' : '<path d="M4 2.5v11l9-5.5z"/>'; }
+  el('play').onclick = () => { if (!playing && frame >= C[cur].frames - 1) frame = 0; playing = !playing; updatePlayIcon(); };
+  el('reset').onclick = () => { frame = 0; playing = true; updatePlayIcon(); draw(); };
+  el('scrub').oninput = e => { frame = +e.target.value; playing = false; updatePlayIcon(); draw(); };
+  function toggle(id, obj) {
+    const button = el(id);
+    obj.visible = button.getAttribute('aria-pressed') === 'true';
+    button.onclick = () => {
+      obj.visible = button.getAttribute('aria-pressed') !== 'true';
+      button.setAttribute('aria-pressed', String(obj.visible));
+      draw();
+    };
+  }
+  toggle('t-robot', robot.root); toggle('t-goal', goal.root); toggle('t-human', humanGroup);
+
+  function resize() {
+    const width = view.clientWidth, height = view.clientHeight;
+    renderer.setSize(width, height);
+    camera.aspect = width / height;
+    if (embedded) camera.zoom = Math.min(1, camera.aspect / 0.85);
+    camera.updateProjectionMatrix();
+  }
+  window.addEventListener('resize', resize); resize();
+  let visible = !embedded;
+  if (embedded) {
+    new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; }).observe(view);
+  }
+  function loop(now) {
+    const dt = Math.min(0.1, (now - last) / 1000); last = now;
+    if (!visible) {
+      requestAnimationFrame(loop);
+      return;
+    }
+    if (playing && cur) {
+      acc += dt * fps * +el('rate').value;
+      const T = C[cur].frames;
+      if (acc >= 1) { frame += Math.floor(acc); acc -= Math.floor(acc); if (frame >= T - 1) { frame = T - 1; playing = false; updatePlayIcon(); } draw(); }
+    }
+    controls.update(); renderer.render(scene, camera); requestAnimationFrame(loop);
+  }
+  select(keys[0]);
+  requestAnimationFrame(loop);
+})();
+</script>

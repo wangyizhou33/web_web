@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="description" content="Infiforce Omni Cerebellum。探索面向轮式人形机器人的全身控制、交互演示、动作数据与仿真训练。">
+  <title>Infiforce Omni Cerebellum</title>
+  <link rel="stylesheet" href="./styles.css">
+  <script src="./site.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#introduction">跳到正文</a>
+  <header class="site-header">
+    <div class="shell header-inner">
+      <a class="wordmark" href="#top" aria-label="Infiforce · 回到顶部"><span class="brand-mark" aria-hidden="true"></span>INFIFORCE</a>
+      <nav class="site-nav" aria-label="章节">
+        <a href="#introduction">Introduction</a>
+        <a href="#demo-1">Demo 1</a>
+        <a href="#demo-2">Demo 2</a>
+        <a href="#data">Data</a>
+        <a href="#training">Model Training</a>
+        <a href="#details">Details</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="hero" aria-labelledby="page-title">
+      <div class="shell hero-inner">
+        <figure class="hero-figure">
+          <div class="hero-grid" aria-hidden="true"></div>
+          <div class="hero-orbit" aria-hidden="true"></div>
+          <div class="hero-ground" aria-hidden="true"></div>
+          <img src="./assets/web/h2-hero.webp" alt="举起手臂的 H2 轮式人形机器人" width="960" height="1120" fetchpriority="high">
+          <figcaption><span>H2</span> WHEELED HUMANOID</figcaption>
+        </figure>
+        <div class="hero-copy">
+          <p class="eyebrow">Whole-Body Control</p>
+          <h1 id="page-title">Infiforce Omni <span>Cerebellum</span></h1>
+          <p class="hero-summary">从大脑给出的动作目标，到机器人全身的协调运动。</p>
+          <div class="hero-actions">
+            <a class="button button-primary" href="#demo-1">探索演示</a>
+            <a class="button button-secondary" href="#introduction">了解架构</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="introduction" class="section introduction" aria-labelledby="intro-title">
+      <div class="shell intro-layout">
+        <div>
+          <p class="eyebrow">Introduction</p>
+          <h2 id="intro-title">From Intent to Motion</h2>
+          <div class="body-copy">
+            <p>人形机器人跳舞、翻跟斗、打拳的视频，这两年已经很常见。看多了，很多人会有一个印象：机器人的“小脑”已经解决了，剩下的只看“大脑”够不够聪明。</p>
+            <p>这个印象只对了一半。表演用的小脑确实已经很成熟；可是要让机器人去干活，大脑需要的是另一样东西。行业里把它叫作 WBC（whole-body control，全身控制）。</p>
+            <p>先交代两个词。本文说的<strong>大脑</strong>，是理解任务、决定做什么，并且每一刻给出动作目标的模型，比如 VLA（视觉-语言-动作模型：看画面、听指令，直接输出动作）。<strong>WBC</strong> 是机器人干活时，把大脑这一刻给出的动作目标，实时变成全身每个关节怎么动的那一层。</p>
+          </div>
+        </div>
+        <figure class="architecture">
+          <a href="./assets/arch.png" target="_blank" rel="noopener" aria-label="在新标签页查看完整架构图">
+            <img src="./assets/arch.png" width="1254" height="1254" loading="lazy" alt="Infiforce 机器人软件架构。Robot Harness 协调任务，Infiforce Atom Brain 给出动作目标，Whole Body Controller 统一控制机器人双臂、躯干和轮式底盘。">
+          </a>
+          <figcaption>Infiforce 机器人控制架构</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="demo-section" aria-label="交互演示">
+      <div class="shell">
+        <article id="demo-1" class="demo">
+          <header class="split-heading">
+            <div>
+              <p class="eyebrow">Demo 1</p>
+              <h2>Motion Tracking</h2>
+            </div>
+            <p>我们把连续的人体动作映射到机器人本体，展示 WBC 如何跟踪大脑给出的动作目标。</p>
+          </header>
+          <iframe class="demo-frame" src="./demo1/index.html?embed" loading="lazy" title="Demo 1 · H2 动作跟踪回放"></iframe>
+          <div class="demo-footer">
+            <p>拖动旋转视角，使用时间轴查看任意一帧。</p>
+            <a href="./demo1/index.html" target="_blank" rel="noopener">在新标签页打开</a>
+          </div>
+        </article>
+
+        <article id="demo-2" class="demo">
+          <header class="split-heading">
+            <div>
+              <p class="eyebrow">Demo 2</p>
+              <h2>Single-Frame Control</h2>
+            </div>
+            <p>选择一个 SMPL 人体姿态，观察 H2 从起始姿态过渡到目标，并在闭环控制下保持姿态。</p>
+          </header>
+          <iframe class="demo-frame" src="./demo2/index.html?embed" loading="lazy" title="Demo 2 · H2 静态单帧推理"></iframe>
+          <div class="demo-footer">
+            <p>在演示下方选择姿态，或切换机器人、目标与人体图层。</p>
+            <a href="./demo2/index.html" target="_blank" rel="noopener">在新标签页打开</a>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section id="data" class="section section-data" aria-labelledby="data-title">
+      <header class="shell split-heading">
+        <div>
+          <p class="eyebrow">Data</p>
+          <h2 id="data-title">Motion Retargeting</h2>
+        </div>
+        <p>视频里渲染了 <strong>66 个动作</strong>，覆盖 <strong>18 个类别</strong>。人体和机器人的动作按相同的顺序一一对应。</p>
+      </header>
+      <div class="comparison" data-comparison data-active="0">
+        <div class="comparison-stage" id="data-view">
+          <div class="comparison-track">
+            <video src="./assets/web/human.mp4" poster="./assets/web/human.webp" aria-label="人体参考动作" preload="none" muted loop playsinline></video>
+            <video src="./assets/web/robot.mp4" poster="./assets/web/robot.webp" aria-label="重定向后的机器人动作" preload="none" muted loop playsinline></video>
+          </div>
+        </div>
+        <div class="shell comparison-toolbar">
+          <div class="comparison-options" role="group" aria-label="选择动作视频">
+            <button type="button" aria-controls="data-view" aria-pressed="true"><span>Human</span></button>
+            <button type="button" aria-controls="data-view" aria-pressed="false"><span>Robot</span></button>
+          </div>
+          <button class="playback" type="button" aria-controls="data-view" aria-label="播放" data-playback><span class="play-icon" aria-hidden="true"></span></button>
+          <span class="timecode" data-timecode aria-hidden="true">0:00</span>
+        </div>
+        <p class="shell video-message" role="status" hidden></p>
+      </div>
+    </section>
+
+    <section id="training" class="section training" aria-labelledby="training-title">
+      <div class="shell">
+        <header class="split-heading">
+          <div>
+            <p class="eyebrow">Model Training</p>
+            <h2 id="training-title">Parallel Simulation</h2>
+          </div>
+          <p>训练使用 59,029 个动作片段，平均每段 12.4 s，合计约 203 h 动作。模型在 4 张 H20 卡上，以约 16,000 个并行仿真环境训练约 18 小时。</p>
+        </header>
+        <dl class="training-stats">
+          <div><dt>动作片段</dt><dd>59,029</dd></div>
+          <div><dt>动作时长</dt><dd>203 <small>h</small></dd></div>
+          <div><dt>并行仿真环境</dt><dd>16,000</dd></div>
+          <div><dt>训练耗时</dt><dd>18 <small>h</small></dd></div>
+        </dl>
+        <figure class="training-media">
+          <video data-loop src="./assets/web/training.mp4" poster="./assets/web/training.webp" preload="none" muted loop playsinline aria-label="多台 H2 机器人在并行仿真环境中训练"></video>
+          <figcaption>并行仿真训练环境</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section id="details" class="section details" aria-labelledby="details-title">
+      <h2 class="shell" id="details-title">Details</h2>
+      <article class="detail">
+        <header class="shell split-heading">
+          <h3>AGV Constraints</h3>
+          <p>我们的算法可以配置不同的底盘类型。对于欠驱动的轮式本体，WBC policy 会通过强化学习学到如何使用可用的自由度。</p>
+        </header>
+        <div class="comparison comparison-wide" data-comparison data-active="0">
+          <div class="comparison-stage" id="agv-view">
+            <div class="comparison-track">
+              <video src="./assets/web/type1.mp4" poster="./assets/web/type1.webp" aria-label="类型 1 底盘的动作对照" preload="none" muted loop playsinline></video>
+              <video src="./assets/web/type2.mp4" poster="./assets/web/type2.webp" aria-label="类型 2 底盘的动作对照" preload="none" muted loop playsinline></video>
+            </div>
+          </div>
+          <div class="shell comparison-toolbar">
+            <div class="comparison-options" role="group" aria-label="选择底盘类型">
+              <button type="button" aria-controls="agv-view" aria-pressed="true"><span>Type 1</span></button>
+              <button type="button" aria-controls="agv-view" aria-pressed="false"><span>Type 2</span></button>
+            </div>
+            <button class="playback" type="button" aria-controls="agv-view" aria-label="播放" data-playback><span class="play-icon" aria-hidden="true"></span></button>
+            <span class="timecode" data-timecode aria-hidden="true">0:00</span>
+          </div>
+          <p class="shell video-message" role="status" hidden></p>
+        </div>
+      </article>
+
+      <article class="shell detail">
+        <header class="split-heading">
+          <h3>System Identification</h3>
+          <p>为了训练闭环稳定的 WBC，我们对 H2 做了 system identification。图中对比了关节阶跃响应在标定前后的差异。</p>
+        </header>
+        <figure class="system-figure">
+          <a href="./assets/systenid.png" target="_blank" rel="noopener" aria-label="在新标签页查看完整系统辨识图">
+            <img src="./assets/systenid.png" width="3066" height="1749" loading="lazy" alt="H2 关节阶跃标定图，比较多个关节的目标、标定前和标定后响应曲线。">
+          </a>
+          <figcaption>H2 关节阶跃响应标定。点击图片查看原图。</figcaption>
+        </figure>
+      </article>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="shell footer-inner">
+      <span class="wordmark"><span class="brand-mark" aria-hidden="true"></span>INFIFORCE</span>
+      <a href="#top">回到顶部</a>
+    </div>
+  </footer>
+</body>
+</html>
